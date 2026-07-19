@@ -1,15 +1,15 @@
 # Problemas
 ## A interface não abriu
 
-A instalação deve ser executada como root: `sudo ./scripts/install.sh`. Ela inicia o serviço ao terminar e o habilita para os próximos boot. O serviço não depende do autologin: ele é iniciado pelo systemd no alvo `multi-user.target`. Verifique o estado e o erro sem perder o diagnóstico:
+A instalação deve ser executada como root: `sudo ./scripts/install.sh`. Ela instala uma unidade systemd de usuário para o `pi`, habilitada em `graphical-session.target`; a sessão gráfica X11 com autologin do `pi` é necessária. A unidade recebe `DISPLAY=:0`, `XAUTHORITY=/home/pi/.Xauthority` e o `XDG_RUNTIME_DIR` da sessão. Verifique o estado e o erro sem perder o diagnóstico:
 
 ```bash
 radioctl status
 radioctl logs
-sudo systemctl restart radio-movel-sdr
+radioctl restart
 ```
 
-Se a instalação foi feita por uma revisão anterior, que apenas habilitava o serviço, execute o último comando ou reinicie uma vez.
+Se a instalação foi feita por uma revisão anterior, execute novamente o instalador para migrar da unidade de sistema para a unidade de usuário.
 
 ## Outros diagnósticos
 
