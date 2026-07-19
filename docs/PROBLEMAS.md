@@ -1,7 +1,7 @@
 # Problemas
 ## A interface não abriu
 
-A instalação deve ser executada como root: `sudo ./scripts/install.sh`. Ela instala uma unidade systemd de usuário para o `pi`, habilitada em `graphical-session.target`; a sessão gráfica X11 com autologin do `pi` é necessária. A unidade recebe `DISPLAY=:0`, `XAUTHORITY=/home/pi/.Xauthority` e o `XDG_RUNTIME_DIR` da sessão. Verifique o estado e o erro sem perder o diagnóstico:
+A instalação deve ser executada como root: `sudo ./scripts/install.sh`. Ela instala a unidade systemd do sistema `radio-movel-sdr.service`, que inicia Xorg e a interface como `pi`; não há uma unidade systemd de usuário. A unidade recebe `DISPLAY=:0` e `XAUTHORITY=/home/pi/.Xauthority`. Verifique o estado e o erro sem perder o diagnóstico:
 
 ```bash
 radioctl status
@@ -9,7 +9,15 @@ radioctl logs
 radioctl restart
 ```
 
-Se a instalação foi feita por uma revisão anterior, execute novamente o instalador para migrar da unidade de sistema para a unidade de usuário.
+Se `radioctl status` informar `Unit radio-movel-sdr.service could not be found`, a unidade não foi instalada (ou foi removida). No clone do projeto, repare a instalação com:
+
+```bash
+cd ~/radio-movel-sdr
+sudo ./scripts/install.sh --non-interactive
+radioctl status
+```
+
+O instalador copia a unidade para `/etc/systemd/system/`, recarrega o systemd e a habilita. Uma instalação de revisão anterior também deve executar esse comando para migrar para a unidade de sistema atual.
 
 ## Outros diagnósticos
 

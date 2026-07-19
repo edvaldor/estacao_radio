@@ -2,9 +2,20 @@
 set -euo pipefail
 SERVICE=radio-movel-sdr.service
 usage(){ echo 'Uso: radioctl {status|start|stop|restart|logs|doctor|update|backup|restore|audio|rtl-test}'; }
+require_service(){
+  if ! systemctl cat "$SERVICE" >/dev/null 2>&1; then
+    cat >&2 <<'EOF'
+Serviço radio-movel-sdr.service não está instalado.
+Para instalar ou reparar a instalação, execute no diretório do projeto:
+  sudo ./scripts/install.sh --non-interactive
+Depois, confirme com: radioctl status
+EOF
+    exit 1
+  fi
+}
 case "${1:-}" in
- status|start|stop|restart) systemctl "$1" "$SERVICE";;
- logs) journalctl -u "$SERVICE" -n "${2:-100}" --no-pager;;
+ status|start|stop|restart) require_service; systemctl "$1" "$SERVICE";;
+ logs) require_service; journalctl -u "$SERVICE" -n "${2:-100}" --no-pager;;
  doctor) exec "${RADIO_HOME:-/opt/radio-movel-sdr}/scripts/doctor.sh";;
  update|backup|restore) exec "${RADIO_HOME:-/opt/radio-movel-sdr}/scripts/$1.sh" "${@:2}";;
  audio) aplay -l || echo 'Nenhuma saída ALSA encontrada.';;
