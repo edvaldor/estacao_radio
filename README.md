@@ -24,12 +24,11 @@ Receptor portátil **somente de recepção** para Raspberry Pi 2, RTL-SDR RTL283
 git clone URL_DO_REPOSITORIO radio-movel-sdr
 cd radio-movel-sdr
 sudo ./scripts/install.sh
-sudo reboot
 ```
 
 O instalador instala/atualiza os pacotes APT necessários (`python3`, `python3-venv`, PyQt5, gpiozero, rtl-sdr, ALSA e X mínimo), cria `/opt/radio-movel-sdr/venv` com acesso apenas aos pacotes do sistema e confirma Raspberry Pi, ARMv7 e Raspberry Pi OS; verifica internet e pelo menos 900 MB livres; lista áudio ALSA e guarda backups em `/var/backups/radio-movel-sdr`. Ele não sobrescreve `settings.json` ou `presets.json` existentes. Para ver ações sem alterar nada: `sudo ./scripts/install.sh --dry-run --non-interactive`.
 
-Após reiniciar, o serviço abre a interface. Caso necessário: `sudo systemctl restart radio-movel-sdr`.
+Ao terminar a instalação, o serviço já abre a interface e também a abre automaticamente nos próximos boot. Ele é um serviço do sistema, portanto o autologin não é necessário nem interfere nesse início. O instalador só termina com sucesso se o serviço estiver habilitado e ativo. Caso necessário: `sudo systemctl restart radio-movel-sdr`. Para confirmar a causa de uma tela que não abriu, execute `radioctl status` e `radioctl logs`.
 
 ## Uso sem teclado
 
@@ -55,7 +54,7 @@ Os exemplos aeronáuticos têm rótulos genéricos, não frequências locais ver
 | `radioctl update --check-only` | Consulta atualização estável. |
 | `radioctl update` / `radioctl update --rollback` | Atualiza por tag ou volta ao commit anterior. |
 
-A atualização instala/atualiza novamente os componentes APT declarados e valida a aplicação antes de reiniciar o serviço. Ela **não** faz upgrade de versão principal do Python ou do sistema operacional, pois isso pode quebrar o Raspberry Pi OS; essas atualizações devem ser feitas pelo administrador via APT. A atualização automática é deliberadamente desativada. Consulte [ATUALIZACAO.md](docs/ATUALIZACAO.md) e [PROBLEMAS.md](docs/PROBLEMAS.md) para recuperação.
+A atualização instala a última **tag estável publicada** (ou uma tag informada com `--version`), atualiza novamente os componentes APT declarados, atualiza a unidade systemd instalada e valida a aplicação antes de reiniciar o serviço. Portanto, um commit que ainda não recebeu tag não é instalado por `radioctl update`. Ela **não** faz upgrade de versão principal do Python ou do sistema operacional, pois isso pode quebrar o Raspberry Pi OS; essas atualizações devem ser feitas pelo administrador via APT. A atualização automática é deliberadamente desativada. Consulte [ATUALIZACAO.md](docs/ATUALIZACAO.md) e [PROBLEMAS.md](docs/PROBLEMAS.md) para recuperação.
 
 ## Arquitetura e decisões
 
