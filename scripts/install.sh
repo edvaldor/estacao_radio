@@ -14,6 +14,7 @@ echo "Usuário da interface: $user"; echo 'Saídas ALSA encontradas:'; aplay -l 
 if (( ! NON )); then read -r -p 'Dispositivo ALSA [default]: ' audio; else audio=default; fi; : "${audio:=default}"
 backup=/var/backups/radio-movel-sdr/$(date +%Y%m%d-%H%M%S); run mkdir -p "$backup" /var/lib/radio-movel-sdr
 [[ -e /etc/systemd/system/radio-movel-sdr.service ]] && run cp -a /etc/systemd/system/radio-movel-sdr.service "$backup/"
+[[ -e "/home/$user/.config/systemd/user/radio-movel-sdr-user.service" ]] && run cp -a "/home/$user/.config/systemd/user/radio-movel-sdr-user.service" "$backup/"
 run "$ROOT/scripts/python-dependencies.sh"
 run install -d -m 755 /opt/radio-movel-sdr
 # Keep a real Git worktree in the installed location: update.sh relies on it.
@@ -39,15 +40,31 @@ import json,sys
 p='/var/lib/radio-movel-sdr/settings.json'; d=json.load(open(p)); d['audio_device']=sys.argv[1]; open(p,'w').write(json.dumps(d,indent=2)+'\n')
 PY
 fi
-if ((DRY)); then echo "[simulação] criar serviço systemd para $user"; else sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr.service > /etc/systemd/system/radio-movel-sdr.service; chmod 644 /etc/systemd/system/radio-movel-sdr.service; fi
+uid=$(id -u "$user")
+user_systemctl(){ runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" systemctl --user "$@"; }
+if ((DRY)); then
+  echo "[simulação] criar unidade systemd de usuário para $user"
+else
+  install -d -o "$user" -g "$user" -m 755 "/home/$user/.config/systemd/user"
+  sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr-user.service > "/home/$user/.config/systemd/user/radio-movel-sdr-user.service"
+  chown "$user:$user" "/home/$user/.config/systemd/user/radio-movel-sdr-user.service"
+  chmod 644 "/home/$user/.config/systemd/user/radio-movel-sdr-user.service"
+  # Migra instalações antigas; a interface agora depende da sessão gráfica.
+  systemctl disable --now radio-movel-sdr.service 2>/dev/null || true
+  rm -f /etc/systemd/system/radio-movel-sdr.service
+fi
 run install -m 755 /opt/radio-movel-sdr/radioctl /usr/local/bin/radioctl
-run systemctl daemon-reload
-run systemctl enable --now radio-movel-sdr.service
+if ((DRY)); then
+  echo "[simulação] systemctl --user enable --now radio-movel-sdr-user.service (usuário $user)"
+else
+  user_systemctl daemon-reload
+  user_systemctl enable --now radio-movel-sdr-user.service
+fi
 if (( ! DRY )); then
-  systemctl is-enabled --quiet radio-movel-sdr.service
-  systemctl is-active --quiet radio-movel-sdr.service || {
+  user_systemctl is-enabled --quiet radio-movel-sdr-user.service
+  user_systemctl is-active --quiet radio-movel-sdr-user.service || {
     echo 'O serviço foi habilitado, mas a interface não permaneceu em execução. Consulte: radioctl logs'
     exit 1
   }
 fi
-echo 'Instalação concluída. A interface foi iniciada e também abrirá nos próximos boot. Diagnóstico: radioctl doctor.'
+echo 'Instalação concluída. A interface abrirá na sessão gráfica com autologin. Diagnóstico: radioctl doctor.'
