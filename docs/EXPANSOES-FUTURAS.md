@@ -1,0 +1,4 @@
+# Expansões futuras — deliberação, não implementadas
+Recepção de radioamador e Rádio do Cidadão é separada como modo opcional, sem presets regulatórios hardcoded até conferir PDFF/atos vigentes da Anatel. Escuta não equivale a autorização de transmissão; COER/autorização se aplicam à transmissão. O R820T pode cobrir 27 MHz nominalmente, porém sensibilidade, PPM e interferência do Pi/tela exigem teste de campo; antena de 11 m, filtro passa-faixa e talvez upconverter/SDR diferente são prováveis para bom resultado. Telescópica curta só deve captar sinais fortes.
+
+`rtl_fm` atende AM/FM/WFM desta versão, mas não é backend SSB completo. USB/LSB futuro deve avaliar `csdr`, custo de CPU no Pi 2, taxa IQ e antenas próprias para 10 m, 6 m, 2 m e 70 cm. Repetidoras devem ser cadastradas pelo usuário por serem dados mutáveis. Antes de distribuir qualquer faixa/canal, validar fontes oficiais Anatel: serviço Radioamador e Rádio do Cidadão/Resolução 777.
