@@ -1,0 +1,13 @@
+[Unit]
+Description=Rádio Móvel SDR (somente recepção)
+After=systemd-user-sessions.service sound.target
+[Service]
+Type=simple
+User=__USER__
+Environment=HOME=/home/__USER__
+Environment=QT_QPA_PLATFORM=linuxfb
+ExecStart=/opt/radio-movel-sdr/venv/bin/python /opt/radio-movel-sdr/app/main.py
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

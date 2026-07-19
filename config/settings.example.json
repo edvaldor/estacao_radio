@@ -1,0 +1,5 @@
+{
+  "mode": "Aviacao", "frequency_hz": 118000000, "modulation": "am", "step_hz": 25000,
+  "gain": "auto", "squelch": 0, "volume": 80, "audio_device": "default", "rtl_serial": "00000001",
+  "demo_mode": false, "scanner_dwell_seconds": 5
+}

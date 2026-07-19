@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SERVICE=radio-movel-sdr.service
+usage(){ echo 'Uso: radioctl {status|start|stop|restart|logs|doctor|update|backup|restore|audio|rtl-test}'; }
+case "${1:-}" in
+ status|start|stop|restart) systemctl "$1" "$SERVICE";;
+ logs) journalctl -u "$SERVICE" -n "${2:-100}" --no-pager;;
+ doctor) exec "${RADIO_HOME:-/opt/radio-movel-sdr}/scripts/doctor.sh";;
+ update|backup|restore) exec "${RADIO_HOME:-/opt/radio-movel-sdr}/scripts/$1.sh" "${@:2}";;
+ audio) aplay -l || echo 'Nenhuma saída ALSA encontrada.';;
+ rtl-test) rtl_test -t || echo 'Teste falhou: conecte o RTL-SDR e execute radioctl doctor.';;
+ *) usage; exit 2;; esac

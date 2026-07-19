@@ -1,0 +1,2 @@
+# Instalação
+No Raspberry Pi OS Lite 32-bit ARMv7, conecte tela, SDR e áudio; então execute `sudo ./scripts/install.sh`. O instalador verifica modelo, arquitetura, espaço, rede, SPI/touch e RTL-SDR, pede a saída ALSA e preserva dados existentes. Para auditar sem modificar: `sudo ./scripts/install.sh --dry-run --non-interactive`. Reinicie ao final. Não rode este instalador nesta máquina Ubuntu/x86: ele recusa corretamente.

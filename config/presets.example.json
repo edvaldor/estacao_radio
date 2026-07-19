@@ -1,0 +1,9 @@
+{
+  "favorites": [
+    {"name": "Torre", "frequency_hz": 118000000, "modulation": "am"},
+    {"name": "Solo", "frequency_hz": 121900000, "modulation": "am"},
+    {"name": "Aproximacao", "frequency_hz": 123450000, "modulation": "am"},
+    {"name": "Centro", "frequency_hz": 125000000, "modulation": "am"}
+  ],
+  "scanner": []
+}
