@@ -45,7 +45,6 @@ run install -m 755 /opt/radio-movel-sdr/radioctl /usr/local/bin/radioctl
 if (( ! DRY )); then
   /opt/radio-movel-sdr/scripts/migrate-x-startup.sh "$user" "$backup"
   usermod -aG video,render,input,audio,gpio "$user" 2>/dev/null || usermod -aG video,render,input,audio "$user"
-  install -m 755 /opt/radio-movel-sdr/scripts/start-graphical-session.sh /opt/radio-movel-sdr/scripts/stop-graphical-session.sh /opt/radio-movel-sdr/scripts/migrate-x-startup.sh /opt/radio-movel-sdr/scripts/
   sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr.service > /etc/systemd/system/radio-movel-sdr.service
   chmod 644 /etc/systemd/system/radio-movel-sdr.service
   systemctl disable --now radio-movel-sdr-user.service 2>/dev/null || true
