@@ -15,7 +15,23 @@ if (( ! NON )); then read -r -p 'Dispositivo ALSA [default]: ' audio; else audio
 backup=/var/backups/radio-movel-sdr/$(date +%Y%m%d-%H%M%S); run mkdir -p "$backup" /var/lib/radio-movel-sdr
 [[ -e /etc/systemd/system/radio-movel-sdr.service ]] && run cp -a /etc/systemd/system/radio-movel-sdr.service "$backup/"
 run "$ROOT/scripts/python-dependencies.sh"
-run install -d -m 755 /opt/radio-movel-sdr; [[ -d /opt/radio-movel-sdr/venv ]] || run python3 -m venv --system-site-packages /opt/radio-movel-sdr/venv; run cp -a "$ROOT/app" "$ROOT/config" "$ROOT/scripts" "$ROOT/radioctl" "$ROOT/VERSION" /opt/radio-movel-sdr/
+run install -d -m 755 /opt/radio-movel-sdr
+# Keep a real Git worktree in the installed location: update.sh relies on it.
+# A local source is intentional fallback for offline/test repositories without origin.
+source_url=$(git -C "$ROOT" remote get-url origin 2>/dev/null || printf '%s' "$ROOT")
+revision=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)
+[[ -n $revision ]] || { echo 'A origem da instalação deve ser um repositório Git válido.'; exit 1; }
+stage=$(mktemp -d); trap 'rm -rf "$stage"' EXIT
+if ((DRY)); then
+  echo "[simulação] git clone --no-checkout $source_url $stage/source; git checkout --detach $revision"
+else
+  git clone --no-checkout "$source_url" "$stage/source"
+  git -C "$stage/source" checkout --detach "$revision"
+  # Deliberately do not delete venv or user data; copy the complete worktree,
+  # including .git and systemd, so official installs can subsequently update.
+  cp -a "$stage/source/." /opt/radio-movel-sdr/
+fi
+[[ -d /opt/radio-movel-sdr/venv ]] || run python3 -m venv --system-site-packages /opt/radio-movel-sdr/venv
 [[ -e /var/lib/radio-movel-sdr/settings.json ]] || run cp "$ROOT/config/settings.example.json" /var/lib/radio-movel-sdr/settings.json
 [[ -e /var/lib/radio-movel-sdr/presets.json ]] || run cp "$ROOT/config/presets.example.json" /var/lib/radio-movel-sdr/presets.json
 if (( ! DRY )); then /opt/radio-movel-sdr/venv/bin/python - "$audio" <<'PY'
@@ -23,5 +39,5 @@ import json,sys
 p='/var/lib/radio-movel-sdr/settings.json'; d=json.load(open(p)); d['audio_device']=sys.argv[1]; open(p,'w').write(json.dumps(d,indent=2)+'\n')
 PY
 fi
-if ((DRY)); then echo "[simulação] criar serviço systemd para $user"; else sed "s/__USER__/$user/g" "$ROOT/systemd/radio-movel-sdr.service" > /etc/systemd/system/radio-movel-sdr.service; chmod 644 /etc/systemd/system/radio-movel-sdr.service; fi; run install -m 755 "$ROOT/radioctl" /usr/local/bin/radioctl; run systemctl daemon-reload; run systemctl enable radio-movel-sdr.service
+if ((DRY)); then echo "[simulação] criar serviço systemd para $user"; else sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr.service > /etc/systemd/system/radio-movel-sdr.service; chmod 644 /etc/systemd/system/radio-movel-sdr.service; fi; run install -m 755 /opt/radio-movel-sdr/radioctl /usr/local/bin/radioctl; run systemctl daemon-reload; run systemctl enable radio-movel-sdr.service
 echo 'Instalação concluída. Reinicie com: sudo reboot. Diagnóstico: radioctl doctor.'

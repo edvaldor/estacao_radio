@@ -8,8 +8,8 @@ Receptor portátil **somente de recepção** para Raspberry Pi 2, RTL-SDR RTL283
 
 - Interface PyQt5 em tela cheia, botões grandes para toque resistivo e fallback quando touch/GPIO não existem.
 - Modos iniciais: Aviação (AM, 118–137 MHz configurável), FM comercial (WFM, 88–108 MHz) e sintonia livre AM/FM/WFM.
-- Passos, ganho automático/manual, squelch, volume persistente e restauração da última sintonia.
-- Scanner modular para canais definidos pelo usuário e backend `rtl_fm` + `aplay` sem shell nem interpolação de entrada.
+- Passos, ganho automático/manual, squelch, volume ALSA persistente e restauração da última sintonia.
+- Backend `rtl_fm` + `aplay` sem shell nem interpolação de entrada.
 - Botões opcionais: GPIO18 anterior, GPIO23 iniciar/parar e GPIO24 próximo.
 - Diagnóstico do ADS7846 por nome/caminho sysfs (não fixa `/dev/input/eventN`), SPI/framebuffer/ALSA/RTL-SDR.
 - Serviços, atualização com rollback, backup/restauração e `radioctl` em português.
@@ -35,8 +35,8 @@ Após reiniciar, o serviço abre a interface. Caso necessário: `sudo systemctl 
 
 - **Anterior/Próximo:** altera a frequência pelo passo atual.
 - **Receber:** inicia ou encerra `rtl_fm` e `aplay` corretamente antes de trocar a sintonia.
-- **Favoritos/Scanner:** a primeira versão mantém as listas em JSON editável; a tela informa o caminho. Crie canais no array `scanner` de `/var/lib/radio-movel-sdr/presets.json`, com `name`, `frequency_hz` e `modulation`.
-- **Volume:** é persistido; a seleção física ALSA é feita pelo instalador ou `radioctl audio`.
+- **Favoritos/Scanner:** estes botões estão explicitamente marcados como **não implementados na interface atual**. Os dados em `presets.json` e o módulo scanner são preparação para a próxima versão, mas não iniciam uma varredura.
+- **Volume:** ajusta o controle ALSA `Master` com `amixer` e persiste o valor quando o controle existe.
 - **Demonstração:** execute manualmente `/opt/radio-movel-sdr/venv/bin/python /opt/radio-movel-sdr/app/main.py --demo` sem SDR.
 
 Os exemplos aeronáuticos têm rótulos genéricos, não frequências locais verificadas. Confirme qualquer frequência operacional em fonte oficial antes do uso.
@@ -65,7 +65,7 @@ PyQt5 foi mantido por ser a arquitetura recomendada e disponível pelo APT no Ra
 
 ## Limitações reais
 
-- Scanner UI e editor de favoritos são baseados em JSON nesta primeira versão; o mecanismo de rotação está pronto, mas a detecção de sinal/dwell no processo de áudio requer validação no SDR real antes de ativação automática.
+- Favoritos e scanner ainda não estão implementados na interface; seus botões informam essa limitação sem sugerir que há recepção/varredura em andamento.
 - `rtl_fm` AM/FM/WFM é o backend implementado; USB/LSB, radioamador, CB/PX e presets regulatórios não estão implementados.
 - 27 MHz pode ser teoricamente alcançável, mas qualidade depende de PPM, ruído do Pi, filtro e antena de 11 m; não há promessa de desempenho. Veja [EXPANSOES-FUTURAS.md](docs/EXPANSOES-FUTURAS.md).
 - O desligamento chama `systemctl poweroff`; a política sudo/systemd do serviço deve ser verificada no Pi.
