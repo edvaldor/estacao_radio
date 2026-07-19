@@ -36,7 +36,7 @@ Ao terminar a instalação, o serviço já abre a interface e também a abre aut
 - **Receber:** inicia ou encerra `rtl_fm` e `aplay` corretamente antes de trocar a sintonia.
 - **Favoritos/Scanner:** estes botões estão explicitamente marcados como **não implementados na interface atual**. Os dados em `presets.json` e o módulo scanner são preparação para a próxima versão, mas não iniciam uma varredura.
 - **Volume:** ajusta o controle ALSA `Master` com `amixer` e persiste o valor quando o controle existe.
-- **Demonstração:** execute manualmente `/opt/radio-movel-sdr/venv/bin/python /opt/radio-movel-sdr/app/main.py --demo` sem SDR.
+- **Demonstração:** execute manualmente `cd /opt/radio-movel-sdr && /opt/radio-movel-sdr/venv/bin/python -m app.main --demo` sem SDR.
 
 Os exemplos aeronáuticos têm rótulos genéricos, não frequências locais verificadas. Confirme qualquer frequência operacional em fonte oficial antes do uso.
 
