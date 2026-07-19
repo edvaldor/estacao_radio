@@ -40,31 +40,24 @@ import json,sys
 p='/var/lib/radio-movel-sdr/settings.json'; d=json.load(open(p)); d['audio_device']=sys.argv[1]; open(p,'w').write(json.dumps(d,indent=2)+'\n')
 PY
 fi
-uid=$(id -u "$user")
-user_systemctl(){ runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" systemctl --user "$@"; }
-if ((DRY)); then
-  echo "[simulação] criar unidade systemd de usuário para $user"
-else
-  install -d -o "$user" -g "$user" -m 755 "/home/$user/.config/systemd/user"
-  sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr-user.service > "/home/$user/.config/systemd/user/radio-movel-sdr-user.service"
-  chown "$user:$user" "/home/$user/.config/systemd/user/radio-movel-sdr-user.service"
-  chmod 644 "/home/$user/.config/systemd/user/radio-movel-sdr-user.service"
-  # Migra instalações antigas; a interface agora depende da sessão gráfica.
-  systemctl disable --now radio-movel-sdr.service 2>/dev/null || true
-  rm -f /etc/systemd/system/radio-movel-sdr.service
-fi
 run install -m 755 /opt/radio-movel-sdr/radioctl /usr/local/bin/radioctl
-if ((DRY)); then
-  echo "[simulação] systemctl --user enable --now radio-movel-sdr-user.service (usuário $user)"
-else
-  user_systemctl daemon-reload
-  user_systemctl enable --now radio-movel-sdr-user.service
-fi
+# Migrate only the obsolete profile recipe before enabling our sole X owner.
 if (( ! DRY )); then
-  user_systemctl is-enabled --quiet radio-movel-sdr-user.service
-  user_systemctl is-active --quiet radio-movel-sdr-user.service || {
-    echo 'O serviço foi habilitado, mas a interface não permaneceu em execução. Consulte: radioctl logs'
-    exit 1
-  }
+  /opt/radio-movel-sdr/scripts/migrate-x-startup.sh "$user" "$backup"
+  usermod -aG video,render,input,audio,gpio "$user" 2>/dev/null || usermod -aG video,render,input,audio "$user"
+  install -m 755 /opt/radio-movel-sdr/scripts/start-graphical-session.sh /opt/radio-movel-sdr/scripts/stop-graphical-session.sh /opt/radio-movel-sdr/scripts/migrate-x-startup.sh /opt/radio-movel-sdr/scripts/
+  sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr.service > /etc/systemd/system/radio-movel-sdr.service
+  chmod 644 /etc/systemd/system/radio-movel-sdr.service
+  systemctl disable --now radio-movel-sdr-user.service 2>/dev/null || true
+  rm -f "/home/$user/.config/systemd/user/radio-movel-sdr-user.service"
+  systemctl daemon-reload
+  systemd-analyze verify /etc/systemd/system/radio-movel-sdr.service
+  systemctl enable --now radio-movel-sdr.service
+  sleep 3
+  systemctl is-active --quiet radio-movel-sdr.service
+  pgrep -u "$user" -x Xorg >/dev/null && pgrep -u "$user" -f 'python.*app.main' >/dev/null || {
+    echo 'A interface abriu e encerrou, ou X não iniciou. A instalação foi interrompida; consulte journalctl -u radio-movel-sdr.service -b.' >&2; exit 1; }
+else
+  echo "[simulação] migrar .bash_profile e habilitar radio-movel-sdr.service"
 fi
-echo 'Instalação concluída. A interface abrirá na sessão gráfica com autologin. Diagnóstico: radioctl doctor.'
+echo 'Instalação concluída. O systemd agora é o único responsável pelo X e pela interface. Diagnóstico: radioctl doctor.'

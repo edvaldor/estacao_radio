@@ -1,0 +1,30 @@
+[Unit]
+Description=Rádio Móvel SDR (Xorg e interface)
+Documentation=file:///opt/radio-movel-sdr/docs/PROBLEMAS.md
+After=systemd-user-sessions.service local-fs.target dev-fb1.device sound.target
+Wants=dev-fb1.device
+Conflicts=getty@tty1.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=/opt/radio-movel-sdr
+Environment=HOME=/home/__USER__
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/__USER__/.Xauthority
+Environment=QT_QPA_PLATFORM=xcb
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/radio-movel-sdr/scripts/start-graphical-session.sh
+ExecStop=/opt/radio-movel-sdr/scripts/stop-graphical-session.sh
+Restart=on-failure
+RestartSec=4
+StandardOutput=journal
+StandardError=journal
+KillMode=control-group
+TimeoutStopSec=12
+
+[Install]
+WantedBy=multi-user.target

@@ -17,6 +17,11 @@ done
 config_has(){ [[ -n $config_file ]] && sed -E 's/[[:space:]]*#.*$//' "$config_file" | grep -Eq "$1"; }
 
 echo '=== Diagnóstico Rádio Móvel SDR ==='
+echo 'Serviço e X:'
+systemctl status radio-movel-sdr.service --no-pager -l 2>&1 || true
+echo 'Xorg:'; pgrep -a Xorg || true
+echo 'Aplicação:'; pgrep -af 'startx|xinit|python|radio-movel' || true
+echo 'Locks X:'; ls -la /tmp/.X11-unix /tmp/.X*-lock 2>/dev/null || true
 echo "Usuário da UI: $ui_user"
 echo "Sistema: $(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-desconhecido}")"
 echo "Kernel: $(uname -a)"
@@ -62,7 +67,7 @@ done
 (( touch_found )) || echo 'AUSENTE: ADS7846/touchscreen não encontrado em /sys/class/input. Verifique SPI, o overlay waveshare32b e reinicie.'
 
 echo 'Qt e entrada (modo selecionado: X11):'
-echo 'QT_QPA_PLATFORM=xcb (definido em systemd/radio-movel-sdr-user.service); não configure QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS neste modo.'
+echo 'QT_QPA_PLATFORM=xcb (definido em systemd/radio-movel-sdr.service); não configure QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS neste modo.'
 if "$python_bin" -c "import sys; sys.path.insert(0, sys.argv[1]); from app.diagnostics.system import pyqt5_xcb_support; ok, message = pyqt5_xcb_support(); print(message); raise SystemExit(not ok)" "$repo_root"; then
   echo 'PyQt5/X11: suporte xcb disponível.'
 else

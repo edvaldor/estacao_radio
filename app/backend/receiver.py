@@ -30,11 +30,15 @@ class Receiver:
         self.processes = [rtl, audio]
         self.active = True
         time.sleep(.15)
-        if rtl.poll() is not None:
-            error = (rtl.stderr.read() or b"").decode(errors="replace")
+        if rtl.poll() is not None or audio.poll() is not None:
+            failed = rtl if rtl.poll() is not None else audio
+            error = (failed.stderr.read() or b"").decode(errors="replace").strip()
             self.stop()
-            if "usb_claim_interface error -6" in error: raise RuntimeError("RTL-SDR ocupado pelo driver DVB. Execute radioctl doctor.")
-            raise RuntimeError("RTL-SDR indisponível: " + error.strip())
+            if "usb_claim_interface error -6" in error:
+                raise RuntimeError("RTL-SDR ocupado pelo driver DVB. Execute radioctl doctor.")
+            if failed is audio:
+                raise RuntimeError("Saída de áudio indisponível: " + (error or self.audio_device))
+            raise RuntimeError("RTL-SDR indisponível: " + error)
     def stop(self):
         for proc in reversed(self.processes):
             if proc.poll() is None:

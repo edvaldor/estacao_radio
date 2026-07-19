@@ -1,24 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-SERVICE=radio-movel-sdr-user.service
-RADIO_USER=${RADIO_USER:-${SUDO_USER:-pi}}
-uid=$(id -u "$RADIO_USER")
-user_systemctl() {
-  runuser -u "$RADIO_USER" -- env \
-    XDG_RUNTIME_DIR="/run/user/$uid" \
-    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
-    systemctl --user "$@"
-}
-user_journalctl() {
-  runuser -u "$RADIO_USER" -- env \
-    XDG_RUNTIME_DIR="/run/user/$uid" \
-    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
-    journalctl --user "$@"
-}
+SERVICE=radio-movel-sdr.service
 usage(){ echo 'Uso: radioctl {status|start|stop|restart|logs|doctor|update|backup|restore|audio|rtl-test}'; }
 case "${1:-}" in
- status|start|stop|restart) user_systemctl "$1" "$SERVICE";;
- logs) user_journalctl -u "$SERVICE" -n "${2:-100}" --no-pager;;
+ status|start|stop|restart) systemctl "$1" "$SERVICE";;
+ logs) journalctl -u "$SERVICE" -n "${2:-100}" --no-pager;;
  doctor) exec "${RADIO_HOME:-/opt/radio-movel-sdr}/scripts/doctor.sh";;
  update|backup|restore) exec "${RADIO_HOME:-/opt/radio-movel-sdr}/scripts/$1.sh" "${@:2}";;
  audio) aplay -l || echo 'Nenhuma saída ALSA encontrada.';;
