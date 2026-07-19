@@ -6,7 +6,8 @@ Type=simple
 User=__USER__
 Environment=HOME=/home/__USER__
 Environment=QT_QPA_PLATFORM=linuxfb
-ExecStart=/opt/radio-movel-sdr/venv/bin/python /opt/radio-movel-sdr/app/main.py
+WorkingDirectory=/opt/radio-movel-sdr
+ExecStart=/opt/radio-movel-sdr/venv/bin/python -m app.main
 Restart=on-failure
 RestartSec=5
 [Install]
