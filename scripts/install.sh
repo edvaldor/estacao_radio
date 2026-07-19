@@ -39,5 +39,15 @@ import json,sys
 p='/var/lib/radio-movel-sdr/settings.json'; d=json.load(open(p)); d['audio_device']=sys.argv[1]; open(p,'w').write(json.dumps(d,indent=2)+'\n')
 PY
 fi
-if ((DRY)); then echo "[simulação] criar serviço systemd para $user"; else sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr.service > /etc/systemd/system/radio-movel-sdr.service; chmod 644 /etc/systemd/system/radio-movel-sdr.service; fi; run install -m 755 /opt/radio-movel-sdr/radioctl /usr/local/bin/radioctl; run systemctl daemon-reload; run systemctl enable radio-movel-sdr.service
-echo 'Instalação concluída. Reinicie com: sudo reboot. Diagnóstico: radioctl doctor.'
+if ((DRY)); then echo "[simulação] criar serviço systemd para $user"; else sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr.service > /etc/systemd/system/radio-movel-sdr.service; chmod 644 /etc/systemd/system/radio-movel-sdr.service; fi
+run install -m 755 /opt/radio-movel-sdr/radioctl /usr/local/bin/radioctl
+run systemctl daemon-reload
+run systemctl enable --now radio-movel-sdr.service
+if (( ! DRY )); then
+  systemctl is-enabled --quiet radio-movel-sdr.service
+  systemctl is-active --quiet radio-movel-sdr.service || {
+    echo 'O serviço foi habilitado, mas a interface não permaneceu em execução. Consulte: radioctl logs'
+    exit 1
+  }
+fi
+echo 'Instalação concluída. A interface foi iniciada e também abrirá nos próximos boot. Diagnóstico: radioctl doctor.'
