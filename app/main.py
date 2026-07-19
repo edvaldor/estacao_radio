@@ -4,6 +4,7 @@ from pathlib import Path
 from app.backend.models import TuneRequest
 from app.backend.receiver import Receiver
 from app.backend.settings import SettingsStore
+from app.audio import set_volume
 from app.gpio.buttons import Buttons
 DEFAULTS={"mode":"Aviacao","frequency_hz":118000000,"modulation":"am","step_hz":25000,"gain":"auto","squelch":0,"volume":80,"audio_device":"default","rtl_serial":"00000001","demo_mode":False}
 
@@ -34,9 +35,13 @@ class RadioWindow:
  def toggle(self):
   if self.receiver.running:self.receiver.stop();self.status.setText('Parado')
   else:self.start()
- def favorites(self): self.status.setText('Edite favoritos em /var/lib/radio-movel-sdr/presets.json')
- def scanner(self): self.status.setText('Scanner: configure canais em presets.json')
- def volume(self, delta): self.settings['volume']=max(0,min(100,self.settings['volume']+delta));self.store.save(self.settings);self.status.setText(f"Volume: {self.settings['volume']}%")
+ def favorites(self): self.status.setText('Favoritos ainda não estão disponíveis nesta interface.')
+ def scanner(self): self.status.setText('Scanner ainda não está disponível nesta interface.')
+ def volume(self, delta):
+  value=max(0,min(100,self.settings['volume']+delta))
+  try: set_volume(value)
+  except (ValueError,RuntimeError) as exc: self.status.setText(str(exc)); return
+  self.settings['volume']=value;self.store.save(self.settings);self.status.setText(f"Volume ALSA: {value}%")
  def configure(self): self.status.setText('Configurações persistidas em /var/lib/radio-movel-sdr/settings.json')
  def shutdown(self): self.receiver.stop(); self.status.setText('Desligamento seguro solicitado'); __import__('subprocess').Popen(['systemctl','poweroff'])
  def show(self):self.window.show()
