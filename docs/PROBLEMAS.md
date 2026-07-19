@@ -60,8 +60,7 @@ sudo usermod -aG input pi
 ## Configuração Qt de entrada
 
 O modo selecionado por este projeto é **sessão X11**, não framebuffer direto. A
-unidade `radio-movel-sdr-user.service` é uma unidade de usuário e inicia a UI
-como `pi`, com `QT_QPA_PLATFORM=xcb`, `DISPLAY=:0` e o `XAUTHORITY` desse
+unidade `radio-movel-sdr.service` inicia a UI como `pi`, com `QT_QPA_PLATFORM=xcb`, `DISPLAY=:0` e o `XAUTHORITY` desse
 usuário. Portanto, não defina `QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS` nem force
 `linuxfb`/`eglfs` nessa instalação: a entrada é entregue pelo Xorg e libinput.
 O instalador instala `xserver-xorg-input-libinput` e `xinput`. O `radioctl
@@ -83,3 +82,50 @@ device detectado naquele boot (por exemplo,
 `QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/eventN`); não reutilize um
 `eventN` documentado ou de boot anterior. Essa combinação não é configurada nem
 validada pela unidade X11 atual.
+
+## A tela apareceu e voltou ao prompt
+
+A causa conhecida deste sintoma é haver **dois iniciadores do X**: a receita antiga
+no `/home/pi/.bash_profile` executa `startx`, enquanto o serviço do rádio tenta
+abrir o mesmo display `:0`. O segundo X encerra ou perde o display e o console
+volta a aparecer. Esta versão usa somente `radio-movel-sdr.service`; nunca deixe
+`startx` em `.bash_profile` para o rádio. O instalador e o atualizador comentam
+somente as duas linhas antigas reconhecidas, guardando uma cópia em
+`/var/backups/radio-movel-sdr/`.
+
+Pelo SSH, recupere primeiro o console sem reiniciar:
+
+```bash
+sudo systemctl stop radio-movel-sdr.service
+radioctl status
+radioctl logs
+sudo radioctl doctor
+```
+
+Veja a causa exata no journal. O `doctor` também mostra Xorg, locks, framebuffer,
+touch, grupos e áudio. Não apague `/tmp/.X0-lock` manualmente: o lançador só o
+remove se o PID escrito nele não estiver vivo. Depois de atualizar/reinstalar,
+restaure a interface sem reboot:
+
+```bash
+cd /opt/radio-movel-sdr
+git fetch --tags
+git checkout <tag-ou-commit-aprovado>
+sudo ./scripts/install.sh --non-interactive
+sudo systemctl restart radio-movel-sdr.service
+radioctl status
+```
+
+Para testar sem RTL-SDR, pare o serviço e inicie uma sessão de demonstração
+controlada (ela usa o mesmo X do serviço):
+
+```bash
+sudo systemctl stop radio-movel-sdr.service
+sudo -u pi HOME=/home/pi DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
+  /opt/radio-movel-sdr/venv/bin/python -m app.main --demo
+sudo systemctl start radio-movel-sdr.service
+```
+
+Se uma saída ALSA for inválida ou o RTL-SDR faltar, a mensagem deve aparecer na
+janela e no journal; a sessão gráfica continua aberta. Botões GPIO ausentes ou
+com erro também são apenas registrados e não devem fechar a interface.

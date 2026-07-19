@@ -28,7 +28,7 @@ sudo ./scripts/install.sh
 
 O instalador instala/atualiza os pacotes APT necessários (`python3`, `python3-venv`, PyQt5, gpiozero, rtl-sdr, ALSA e X mínimo), cria `/opt/radio-movel-sdr/venv` com acesso apenas aos pacotes do sistema e confirma Raspberry Pi, ARMv7 e Raspberry Pi OS; verifica internet e pelo menos 900 MB livres; lista áudio ALSA e guarda backups em `/var/backups/radio-movel-sdr`. Ele não sobrescreve `settings.json` ou `presets.json` existentes. Para ver ações sem alterar nada: `sudo ./scripts/install.sh --dry-run --non-interactive`.
 
-Ao terminar a instalação, a unidade systemd **de usuário** do `pi` é habilitada para a sessão gráfica e a interface é iniciada. Ela usa **X11** (não framebuffer direto), com `DISPLAY=:0` e `XAUTHORITY=/home/pi/.Xauthority`; por isso o autologin gráfico do `pi` é obrigatório e interfere diretamente na inicialização. O instalador só termina com sucesso se a unidade estiver habilitada e ativa na sessão do `pi`. Para reiniciar ou consultar o journal, use `radioctl restart`, `radioctl status` e `radioctl logs` (não `sudo systemctl restart`).
+Ao terminar a instalação, a unidade systemd **`radio-movel-sdr.service`** inicia Xorg e a interface como `pi`. Ela é a única responsável pelo display `:0`; o instalador migra as linhas antigas `FRAMEBUFFER=/dev/fb1` e `startx 2> /tmp/xorg_errors` do `.bash_profile`, preservando as demais personalizações e fazendo backup. A unidade usa X11 com `DISPLAY=:0` e `XAUTHORITY=/home/pi/.Xauthority`, registra tudo no journal e só termina com sucesso se Xorg e a aplicação permanecerem abertos. Para reiniciar ou consultar o journal, use `sudo systemctl restart radio-movel-sdr.service`, `radioctl status` e `radioctl logs`.
 
 ## Uso sem teclado
 
@@ -86,7 +86,7 @@ O último comando deve recusar corretamente esta máquina de desenvolvimento se 
 app/          interface, backend, scanner, áudio, GPIO e diagnóstico
 config/       exemplos de configurações e presets JSON
 scripts/      instalação, atualização, desinstalação, diagnóstico e backup
-systemd/      unidade de usuário para a sessão gráfica
+systemd/      unidade de sistema que supervisiona a sessão gráfica
 docs/         instalação, hardware, recuperação e expansões
 ```
 
