@@ -6,3 +6,4 @@ class ModelsTest(unittest.TestCase):
   with self.assertRaises(ValueError): validate_frequency(118000000,'wfm')
  def test_rejects_invalid_squelch(self):
   with self.assertRaises(ValueError): TuneRequest(118000000,'am',squelch=101)
+ def test_accepts_nfm(self): self.assertEqual(validate_frequency(146520000, 'nfm'), 146520000)
