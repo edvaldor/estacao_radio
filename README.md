@@ -16,7 +16,7 @@ Receptor portátil **somente de recepção** para Raspberry Pi 2, RTL-SDR RTL283
 
 ## Instalação para leigos
 
-1. Instale Raspberry Pi OS Lite **32-bit** no Pi 2 e conecte a tela, o RTL-SDR, a antena e uma saída de áudio.
+1. Instale **Raspberry Pi OS 32-bit com ambiente gráfico** no Pi 2. Crie o usuário que irá usar o rádio, entre no desktop uma vez e conecte a tela, o RTL-SDR, a antena e uma saída de áudio.
 2. Configure o overlay/touchscreen conforme o fornecedor da tela (normalmente `waveshare32b`), habilite SPI e confirme Wi-Fi/SSH.
 3. No Pi, execute:
 
@@ -26,11 +26,13 @@ cd radio-movel-sdr
 sudo ./scripts/install.sh
 ```
 
-O instalador instala/atualiza os pacotes APT necessários (`python3`, `python3-venv`, PyQt5, gpiozero, rtl-sdr, ALSA e X mínimo), cria `/opt/radio-movel-sdr/venv` com acesso apenas aos pacotes do sistema e confirma Raspberry Pi, ARMv7 e Raspberry Pi OS; verifica internet e pelo menos 900 MB livres; lista áudio ALSA e guarda backups em `/var/backups/radio-movel-sdr`. Ele não sobrescreve `settings.json` ou `presets.json` existentes. Para ver ações sem alterar nada: `sudo ./scripts/install.sh --dry-run --non-interactive`.
+O instalador instala/atualiza os pacotes APT necessários (`python3`, `python3-venv`, PyQt5, gpiozero, rtl-sdr e ALSA), cria `/opt/radio-movel-sdr/venv` com acesso apenas aos pacotes do sistema e confirma Raspberry Pi, ARMv7 e Raspberry Pi OS; verifica internet e pelo menos 900 MB livres; lista áudio ALSA e guarda backups em `/var/backups/radio-movel-sdr`. Ele não sobrescreve `settings.json` ou `presets.json` existentes. Para ver ações sem alterar nada: `sudo ./scripts/install.sh --dry-run --non-interactive`.
 
 Ao final, o instalador **detecta o RTL-SDR** com timeout de 10 segundos e, se encontrado em modo interativo, oferece um teste de sintonia em 91.9 MHz (FM comercial) para validar a recepção. Se o SDR não for detectado ou o driver DVB estiver ocupando o dispositivo, o instalador oferece opções: modo demonstração (sem SDR), retomar após conectar, ou abortar.
 
-Ao terminar, o instalador cria `~/Desktop/radio-movel-sdr.desktop` para o usuário selecionado. Entre normalmente na sessão gráfica e abra **Rádio Móvel SDR** com duplo clique. O lançador usa a sessão X11 existente — ele não inicia Xorg nem habilita serviço para inicialização automática — e evita duas instâncias simultâneas. Os erros de inicialização e da aplicação ficam em `~/.local/state/radio-movel-sdr/launch.log`.
+Ao terminar, o instalador cria o atalho `~/Desktop/radio-movel-sdr.desktop` para o usuário selecionado. No desktop desse usuário, dê **duplo clique em Rádio Móvel SDR** para abrir o rádio; o lançador usa a sessão gráfica X11 que já está aberta, não inicia outro Xorg e evita duas instâncias simultâneas. Para encerrar, feche a janela (por exemplo, `Alt+F4`); ao fechar, a aplicação interrompe a recepção e seus processos de áudio. Se precisar encerrar remotamente, use `pkill -f '/opt/radio-movel-sdr/venv/bin/python -m app.main'` como o usuário do desktop.
+
+A instalação gráfica deliberadamente desabilita e remove qualquer `radio-movel-sdr.service`: o rádio **não abre automaticamente no boot**. Confirme depois da instalação com `systemctl is-enabled radio-movel-sdr.service` e `systemctl is-active radio-movel-sdr.service`; as respostas esperadas são `not-found` (ou `disabled`, se uma unidade foi mantida manualmente) e `inactive`. Os erros de inicialização e da aplicação ficam em `~/.local/state/radio-movel-sdr/launch.log`. Veja o fluxo Lite opcional e separado em [INSTALACAO.md](docs/INSTALACAO.md).
 
 ## Uso sem teclado
 

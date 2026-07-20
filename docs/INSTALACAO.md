@@ -1,5 +1,57 @@
 # Instalação
-No Raspberry Pi OS Lite 32-bit ARMv7, conecte tela, SDR e áudio e execute `sudo ./scripts/install.sh`. Configure uma sessão gráfica X11 normal para o usuário que será selecionado pelo instalador: a aplicação usa essa sessão já existente e não inicia Xorg. Ao final, o instalador cria `/home/<usuário>/Desktop/radio-movel-sdr.desktop`. Entre na sessão gráfica e abra **Rádio Móvel SDR** com duplo clique nesse ícone. Nenhum serviço é habilitado para inicialização automática. Os pacotes X11 mínimos continuam obrigatórios e são instalados por `scripts/python-dependencies.sh`. O instalador verifica modelo, arquitetura, espaço, rede, tela/touch e RTL-SDR, pede a saída ALSA e preserva dados existentes. Para auditar sem modificar: `sudo ./scripts/install.sh --dry-run --non-interactive`. Se a janela não abrir, consulte `~/.local/state/radio-movel-sdr/launch.log` e execute `radioctl doctor`. Não rode este instalador nesta máquina Ubuntu/x86: ele recusa corretamente.
+
+## Fluxo principal — Raspberry Pi OS 32-bit com ambiente gráfico
+
+Use **Raspberry Pi OS 32-bit com ambiente gráfico** no Raspberry Pi 2. Não use a imagem Lite para este fluxo. Antes da instalação, entre no desktop pelo menos uma vez com o usuário que usará o rádio, conecte tela, RTL-SDR e áudio, configure a rede e habilite SPI/overlay conforme a tela.
+
+No clone do projeto, execute:
+
+```bash
+sudo ./scripts/install.sh
+```
+
+O instalador verifica modelo, arquitetura, espaço, rede, tela/touch e RTL-SDR, pede a saída ALSA e preserva dados existentes. Ele instala as dependências necessárias e cria o atalho `/home/<usuário>/Desktop/radio-movel-sdr.desktop` para o usuário selecionado. Para auditar sem modificar: `sudo ./scripts/install.sh --dry-run --non-interactive`. Não rode este instalador em Ubuntu/x86: ele recusa corretamente.
+
+### Abrir e encerrar o rádio
+
+1. Entre no desktop do usuário selecionado pelo instalador.
+2. Localize o ícone **Rádio Móvel SDR** na área de trabalho; ele corresponde a `~/Desktop/radio-movel-sdr.desktop`.
+3. Dê **duplo clique** no ícone. O lançador abre o programa dentro da sessão gráfica atual e registra mensagens em `~/.local/state/radio-movel-sdr/launch.log`.
+4. Para encerrar, feche a janela do rádio — por exemplo, com `Alt+F4`. A aplicação para o receptor e o áudio ao ser fechada. Para encerrar remotamente, entre como o usuário do desktop e execute:
+
+```bash
+pkill -f '/opt/radio-movel-sdr/venv/bin/python -m app.main'
+```
+
+A instalação gráfica não configura inicialização automática. Ela desabilita e remove uma eventual unidade `radio-movel-sdr.service`; portanto, o ícone só abre o rádio quando recebe o duplo clique. Confirme que não há abertura no boot com:
+
+```bash
+systemctl is-enabled radio-movel-sdr.service
+systemctl is-active radio-movel-sdr.service
+```
+
+O resultado esperado é `not-found` (ou `disabled` se uma unidade antiga foi deixada manualmente) no primeiro comando e `inactive` no segundo. Se a janela não abrir, consulte o log acima e execute `radioctl doctor`.
+
+## Fluxo alternativo e opt-in — Raspberry Pi OS Lite 32-bit
+
+Use este fluxo **somente** se desejar transformar o Pi em um aparelho dedicado, sem desktop convencional, iniciando o rádio via systemd. Ele é separado do fluxo gráfico: não instale ou habilite esta unidade em uma instalação com ambiente gráfico, pois ela cria e controla sua própria sessão Xorg.
+
+Primeiro instale os componentes no Lite com `sudo ./scripts/install.sh`. Depois, substitua `pi` pelo usuário escolhido e habilite explicitamente a unidade:
+
+```bash
+sudo sed 's/__USER__/pi/g' /opt/radio-movel-sdr/systemd/radio-movel-sdr.service \
+  | sudo tee /etc/systemd/system/radio-movel-sdr.service >/dev/null
+sudo systemctl daemon-reload
+sudo systemctl enable --now radio-movel-sdr.service
+```
+
+Nesse fluxo alternativo, a unidade é a opção que abre o rádio no boot. Para pará-lo ou impedir novas inicializações, use:
+
+```bash
+sudo systemctl disable --now radio-movel-sdr.service
+```
+
+Para voltar ao fluxo principal com desktop, mantenha a unidade desabilitada/removida e execute novamente o instalador gráfico para recriar o atalho.
 
 ## Configuração de display e toque
 
