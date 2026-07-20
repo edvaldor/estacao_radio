@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; && pwd); DRY=0; NON=0
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd); DRY=0; NON=0
 for arg in "$@"; do case "$arg" in --dry-run) DRY=1;; --non-interactive) NON=1;; *) echo "Opção inválida: $arg"; exit 2;; esac; done
 run(){ if ((DRY)); then printf '[simulação]'; printf ' %q' "$@"; echo; else "$@"; fi; }
 [[ $EUID -eq 0 ]] || { echo 'Execute com sudo.'; exit 1; }
@@ -16,6 +16,10 @@ if (( ! NON )); then read -r -p 'Dispositivo ALSA [default]: ' audio; else audio
 backup=/var/backups/radio-movel-sdr/$(date +%Y%m%d-%H%M%S); run mkdir -p "$backup" /var/lib/radio-movel-sdr
 [[ -e /etc/systemd/system/radio-movel-sdr.service ]] && run cp -a /etc/systemd/system/radio-movel-sdr.service "$backup/"
 run "$ROOT/scripts/python-dependencies.sh"
+display_args=(--user="$user")
+(( DRY )) && display_args+=(--dry-run)
+(( NON )) && display_args+=(--non-interactive)
+run "$ROOT/scripts/configure-display.sh" "${display_args[@]}"
 run install -d -m 755 /opt/radio-movel-sdr
 # Keep a real Git worktree in the installed location: update.sh relies on it.
 # A local source is intentional fallback for offline/test repositories without origin.
