@@ -2,13 +2,19 @@
 from dataclasses import dataclass
 from typing import Union
 
-MODULATIONS = {"am", "fm", "wfm"}
-RANGES = {"am": (24_000_000, 1_760_000_000), "fm": (24_000_000, 1_760_000_000), "wfm": (64_000_000, 108_000_000)}
+MODULATIONS = {"am", "fm", "nfm", "wfm"}
+RANGES = {
+    "am": (24_000_000, 1_760_000_000),
+    "fm": (24_000_000, 1_760_000_000),
+    # rtl_fm calls its compatible narrow-band discriminator simply "fm".
+    "nfm": (24_000_000, 1_760_000_000),
+    "wfm": (64_000_000, 108_000_000),
+}
 
 
 def validate_frequency(value: int, modulation: str) -> int:
     if modulation not in MODULATIONS:
-        raise ValueError("Modulação inválida. Use AM, FM ou WFM.")
+        raise ValueError("Modulação inválida. Use AM, FM, NFM ou WFM.")
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError("A frequência deve ser um número inteiro em Hz.")
     low, high = RANGES[modulation]
