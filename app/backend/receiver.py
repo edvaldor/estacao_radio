@@ -1,12 +1,15 @@
 """Safe lifecycle wrapper around rtl_fm and aplay; no shell is invoked."""
-import glob, logging, shutil, subprocess, time
+import glob, logging, shutil, subprocess, threading, time
+from .recording import WavRecorder
 from .models import TuneRequest
 LOG = logging.getLogger(__name__)
 
 class Receiver:
-    def __init__(self, audio_device="default", serial=None, demo=False):
+    def __init__(self, audio_device="default", serial=None, demo=False, recording_dir="/var/lib/radio-movel-sdr/recordings"):
         self.audio_device, self.serial, self.demo, self.processes = audio_device, serial, demo, []
         self.active = False
+        self.recorder = WavRecorder(recording_dir)
+        self._pump_thread = None
     def command(self, request):
         # rtl_fm uses "fm" for narrow FM; the UI keeps NFM distinct so it can
         # communicate the intended bandwidth without inventing an unsupported
@@ -28,9 +31,11 @@ class Receiver:
             rtl = subprocess.Popen(self.command(request), stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
             # Keep ownership immediately: aplay can fail after rtl_fm has started.
             self.processes = [rtl]
-            audio = subprocess.Popen(["aplay", "-q", "-D", self.audio_device, "-f", "S16_LE", "-r", str(request.sample_rate), "-c", "1"], stdin=rtl.stdout, stderr=subprocess.PIPE, start_new_session=True)
+            audio = subprocess.Popen(["aplay", "-q", "-D", self.audio_device, "-f", "S16_LE", "-r", str(request.sample_rate), "-c", "1"], stdin=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         except OSError as exc: self.stop(); raise RuntimeError(f"Não foi possível iniciar o receptor: {exc}") from exc
         self.processes = [rtl, audio]
+        self._pump_thread = threading.Thread(target=self._pump_audio, args=(rtl.stdout, audio.stdin), daemon=True)
+        self._pump_thread.start()
         self.active = True
         time.sleep(.15)
         if rtl.poll() is not None or audio.poll() is not None:
@@ -43,6 +48,7 @@ class Receiver:
                 raise RuntimeError("Saída de áudio indisponível: " + (error or self.audio_device))
             raise RuntimeError("RTL-SDR indisponível: " + error)
     def stop(self):
+        self.recorder.stop()
         for proc in reversed(self.processes):
             if proc.poll() is None:
                 proc.terminate()
@@ -50,6 +56,24 @@ class Receiver:
                 except subprocess.TimeoutExpired: proc.kill(); proc.wait()
         self.processes = []
         self.active = False
+    def _pump_audio(self, source, sink):
+        try:
+            while True:
+                data = source.read(4096)
+                if not data: break
+                self.recorder.write(data)
+                sink.write(data); sink.flush()
+        except (OSError, BrokenPipeError):
+            pass
+        finally:
+            try: sink.close()
+            except OSError: pass
+    def start_recording(self, frequency_hz, sample_rate=24_000):
+        if not self.running:
+            raise RuntimeError("Inicie a recepção antes de gravar")
+        self.recorder.sample_rate = sample_rate
+        return self.recorder.start(frequency_hz)
+    def stop_recording(self): self.recorder.stop()
     @property
     def running(self): return self.active and (self.demo or bool(self.processes) and all(p.poll() is None for p in self.processes))
 
