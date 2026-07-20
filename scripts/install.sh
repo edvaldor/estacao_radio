@@ -61,4 +61,68 @@ EOF
 else
   echo "[simulação] desabilitar serviço antigo e criar $home/Desktop/radio-movel-sdr.desktop"
 fi
-echo "Instalação concluída. Na sessão gráfica de $user, abra Rádio Móvel SDR com duplo clique em $home/Desktop/radio-movel-sdr.desktop. Diagnóstico: radioctl doctor."
+# Detect RTL-SDR with timeout and offer interactive test
+echo ''
+echo '=== Detecção RTL-SDR ==='
+if (( ! DRY )); then
+  sdr_detected=0
+  timeout 10 rtl_test -t >/dev/null 2>&1 && sdr_detected=1 || true
+  
+  if (( sdr_detected )); then
+    echo 'RTL-SDR detectado com sucesso.'
+    if (( NON )); then
+      echo '[modo não-interativo] saltando teste de sintonia; use radioctl rtl-test para validar.'
+    else
+      echo ''
+      echo 'Teste de sintonia 91.9 MHz (FM comercial) com saída ALSA? (s/n) [s]'
+      read -r -p '> ' tune_test
+      : "${tune_test:=s}"
+      if [[ "$tune_test" =~ ^[Ss]$ ]]; then
+        echo 'Iniciando rtl_fm em 91.9 MHz, WFM, durante 5 segundos...'
+        if timeout 5 rtl_fm -f 91.9M -M wfm -s 200000 -r 48000 -l 0 -g 0 -A fast 2>/dev/null | aplay -D "$audio" -f S16_LE -c 1 -r 48000 2>/dev/null; then
+          echo 'Teste concluído. Você ouviu a emissora? (s/n) [s]'
+          read -r -p '> ' heard
+          : "${heard:=s}"
+          if [[ "$heard" =~ ^[Ss]$ ]]; then
+            echo 'RTL-SDR validado: recepção funcional.'
+          else
+            echo '⚠ Aviso: áudio detectado, mas qualidade pode estar reduzida. Verifique antena, filtros e ruído local.'
+          fi
+        else
+          echo '⚠ Teste de sintonia falhou ou timeout. Verifique saída ALSA.'
+        fi
+      else
+        echo 'Teste de sintonia saltado.'
+      fi
+    fi
+  else
+    echo ''
+    echo '⚠ RTL-SDR NÃO DETECTADO ou INDISPONÍVEL.'
+    echo ''
+    echo 'Possíveis causas:'
+    echo '  1. USB desconectado: verifique cabo e porta USB.'
+    echo '  2. Driver DVB ativo: execute: sudo modprobe -r dvb_usb_rtl28xxu'
+    echo '  3. Permissões: RTL-SDR pode exigir udev rules.'
+    echo ''
+    if (( NON )); then
+      echo '[modo não-interativo] registrando resultado e prosseguindo.'
+      sdr_validated=0
+    else
+      echo 'Opções:'
+      echo '  [1] Apenas demonstração (--demo, sem SDR)'
+      echo '  [2] Conectar RTL-SDR e retomar'
+      echo '  [3] Abortar instalação'
+      read -r -p 'Escolha (1-3): ' choice
+      case "$choice" in
+        1) echo 'Instalado em modo demonstração. Use: /opt/radio-movel-sdr/venv/bin/python -m app.main --demo' ;;
+        2) echo 'Reconecte o RTL-SDR e execute novamente: sudo ./scripts/install.sh' ; exit 1 ;;
+        3) echo 'Instalação abortada pelo usuário.' ; exit 1 ;;
+        *) echo 'Opção inválida.' ; exit 2 ;;
+      esac
+    fi
+  fi
+else
+  echo '[simulação] detectar RTL-SDR com timeout e oferecer teste de sintonia'
+fi
+echo ''
+echo 'Instalação concluída. Na sessão gráfica de $user, abra Rádio Móvel SDR com duplo clique em $home/Desktop/radio-movel-sdr.desktop. Diagnóstico: radioctl doctor.'

@@ -28,6 +28,8 @@ sudo ./scripts/install.sh
 
 O instalador instala/atualiza os pacotes APT necessários (`python3`, `python3-venv`, PyQt5, gpiozero, rtl-sdr, ALSA e X mínimo), cria `/opt/radio-movel-sdr/venv` com acesso apenas aos pacotes do sistema e confirma Raspberry Pi, ARMv7 e Raspberry Pi OS; verifica internet e pelo menos 900 MB livres; lista áudio ALSA e guarda backups em `/var/backups/radio-movel-sdr`. Ele não sobrescreve `settings.json` ou `presets.json` existentes. Para ver ações sem alterar nada: `sudo ./scripts/install.sh --dry-run --non-interactive`.
 
+Ao final, o instalador **detecta o RTL-SDR** com timeout de 10 segundos e, se encontrado em modo interativo, oferece um teste de sintonia em 91.9 MHz (FM comercial) para validar a recepção. Se o SDR não for detectado ou o driver DVB estiver ocupando o dispositivo, o instalador oferece opções: modo demonstração (sem SDR), retomar após conectar, ou abortar.
+
 Ao terminar, o instalador cria `~/Desktop/radio-movel-sdr.desktop` para o usuário selecionado. Entre normalmente na sessão gráfica e abra **Rádio Móvel SDR** com duplo clique. O lançador usa a sessão X11 existente — ele não inicia Xorg nem habilita serviço para inicialização automática — e evita duas instâncias simultâneas. Os erros de inicialização e da aplicação ficam em `~/.local/state/radio-movel-sdr/launch.log`.
 
 ## Uso sem teclado
