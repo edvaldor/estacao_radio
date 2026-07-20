@@ -2,11 +2,38 @@
 
 ## A interface não abriu
 
-Execute a instalação como root: `sudo ./scripts/install.sh`. Ela cria o lançador
+O fluxo principal requer **Raspberry Pi OS 32-bit com ambiente gráfico**. Execute a
+instalação com `sudo ./scripts/install.sh`; ela cria o atalho
 `/home/<usuário>/Desktop/radio-movel-sdr.desktop` para o usuário selecionado. Entre
-na sessão gráfica desse usuário e abra **Rádio Móvel SDR** com duplo clique. O
-lançador usa a sessão X11 já aberta; ele não inicia Xorg e não existe um serviço
-`radio-movel-sdr.service` habilitado para iniciar a interface automaticamente.
+no desktop desse mesmo usuário e dê **duplo clique em Rádio Móvel SDR**. O lançador
+usa a sessão X11 já aberta, portanto não deve ser iniciado por SSH nem fora do
+desktop.
+
+Para encerrar uma instância aberta, feche a janela (por exemplo, com `Alt+F4`). A
+aplicação encerra a recepção e o áudio durante o fechamento. Se a janela não estiver
+acessível, encerre-a remotamente como o usuário do desktop:
+
+```bash
+pkill -f '/opt/radio-movel-sdr/venv/bin/python -m app.main'
+```
+
+A instalação gráfica desabilita e remove `radio-movel-sdr.service`; não há abertura
+automática no boot. Confirme o estado:
+
+```bash
+systemctl is-enabled radio-movel-sdr.service
+systemctl is-active radio-movel-sdr.service
+```
+
+Espere `not-found` (ou `disabled`, se uma unidade antiga foi preservada
+manualmente) e `inactive`. Se os comandos mostrarem `enabled` ou `active`, desfaça
+a configuração de aparelho Lite antes de usar o desktop:
+
+```bash
+sudo systemctl disable --now radio-movel-sdr.service
+sudo rm -f /etc/systemd/system/radio-movel-sdr.service
+sudo systemctl daemon-reload
+```
 
 Consulte o registro acessível ao usuário e o diagnóstico:
 
@@ -22,6 +49,13 @@ projeto:
 cd ~/radio-movel-sdr
 sudo ./scripts/install.sh --non-interactive
 ```
+
+### Raspberry Pi OS Lite (fluxo alternativo)
+
+No Lite, a unidade systemd é uma escolha **opt-in** para um aparelho dedicado e
+controla sua própria sessão Xorg; ela não deve coexistir com o fluxo do desktop.
+Confira os comandos de criação, ativação e desativação da unidade em
+[INSTALACAO.md](INSTALACAO.md#fluxo-alternativo-e-opt-in--raspberry-pi-os-lite-32-bit).
 
 ## Touchscreen ADS7846/Waveshare não responde
 
