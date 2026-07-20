@@ -14,14 +14,17 @@ from pathlib import Path
 from app.audio import set_volume
 from app.backend.models import TuneRequest
 from app.backend.receiver import Receiver
+from app.backend.presets import PresetStore
 from app.backend.settings import SettingsStore
 from app.gpio.buttons import Buttons
+from app.scanner.engine import Scanner
 
 
 DEFAULTS = {
     "mode": "AIR", "frequency_hz": 118_000_000, "modulation": "am",
     "step_hz": 25_000, "gain": "auto", "squelch": 0, "volume": 80,
     "audio_device": "default", "rtl_serial": "00000001", "demo_mode": False,
+    "scanner_dwell_seconds": 5,
 }
 
 # A band describes the safe initial tuning presented by the UI.  The backend
@@ -41,7 +44,8 @@ if importlib.util.find_spec("PyQt5"):
     from PyQt5.QtGui import QColor, QPainter, QPen
     from PyQt5.QtWidgets import (QApplication, QDial, QFrame, QGridLayout,
                                  QHBoxLayout, QLabel, QMainWindow, QPushButton,
-                                 QProgressBar, QSlider, QVBoxLayout, QWidget)
+                                 QProgressBar, QSlider, QVBoxLayout, QWidget,
+                                 QInputDialog)
 
     NIGHT_STYLE = """
         QWidget { background: #050b12; color: #f5f7fa; font-family: Sans Serif; }
@@ -109,10 +113,12 @@ if importlib.util.find_spec("PyQt5"):
 
 
     class RadioWindow(QMainWindow):
-        def __init__(self, settings, store):
+        def __init__(self, settings, store, recording_dir=None):
             super().__init__()
             self.settings, self.store = settings, store
-            self.receiver = Receiver(settings["audio_device"], settings.get("rtl_serial"), settings.get("demo_mode"))
+            self.receiver = Receiver(settings["audio_device"], settings.get("rtl_serial"), settings.get("demo_mode"), recording_dir or store.path.parent / "recordings")
+            self.presets = PresetStore(store.path.parent / "presets.json")
+            self.scanner_engine = Scanner([], dwell_seconds=settings.get("scanner_dwell_seconds", 5))
             self.current_band = settings.get("mode") if settings.get("mode") in BANDS else "AIR"
             self.worker = None
             self.setWindowTitle("Rádio SDR")
@@ -123,6 +129,7 @@ if importlib.util.find_spec("PyQt5"):
             self.spectrum_timer = QTimer(self)
             self.spectrum_timer.timeout.connect(self.spectrum.tick)
             self.spectrum_timer.start(500)  # Caps CPU work at 2 frames per second.
+            self.scanner_timer = QTimer(self); self.scanner_timer.timeout.connect(self.scan_tick); self.scanner_timer.start(250)
             self.refresh()
 
         def _card(self):
@@ -170,7 +177,13 @@ if importlib.util.find_spec("PyQt5"):
             self._add_slider(s, "VOL", "volume", self.change_volume)
             self._add_slider(s, "SQL", "squelch", self.change_squelch)
             body.addWidget(side, 1); outer.addLayout(body, 1)
-            action = QPushButton("RECEBER / PARAR"); action.setMinimumHeight(30); action.clicked.connect(self.toggle); outer.addWidget(action)
+            actions = QHBoxLayout()
+            action = QPushButton("RECEBER / PARAR"); action.setMinimumHeight(34); action.clicked.connect(self.toggle); actions.addWidget(action)
+            self.favorite_button = QPushButton("★ FAVORITOS"); self.favorite_button.clicked.connect(self.favorites); actions.addWidget(self.favorite_button)
+            self.scanner_button = QPushButton("▶ SCANNER"); self.scanner_button.setCheckable(True); self.scanner_button.clicked.connect(self.scanner); actions.addWidget(self.scanner_button)
+            outer.addLayout(actions)
+            self.record_button = QPushButton("● GRAVAR"); self.record_button.setCheckable(True); self.record_button.setMinimumHeight(44); self.record_button.setStyleSheet("font-size: 21px; font-weight: bold; color: #ff6666")
+            self.record_button.clicked.connect(self.toggle_recording); outer.addWidget(self.record_button)
             self.setCentralWidget(root)
 
         def _add_slider(self, layout, title, key, callback):
@@ -220,6 +233,58 @@ if importlib.util.find_spec("PyQt5"):
             self.store.save(self.settings); self.refresh()
             if restart and self.receiver.running: self.start()
 
+        def favorites(self):
+            """Select, create or remove persisted favourites in one touch flow."""
+            options = [f"Sintonizar: {p['name']} ({p['frequency_hz'] / 1e6:.3f} MHz)" for p in self.presets.load()]
+            options += ["Adicionar frequência atual", "Excluir favorito"]
+            choice, accepted = QInputDialog.getItem(self, "Favoritos", "Ação:", options, 0, False)
+            if not accepted: return
+            saved = self.presets.load()
+            if choice == "Adicionar frequência atual":
+                name, accepted = QInputDialog.getText(self, "Novo favorito", "Nome:")
+                if accepted and name.strip():
+                    self.presets.add({"name": name.strip(), "frequency_hz": self.settings["frequency_hz"], "modulation": self.settings["modulation"]})
+                    self.status.setText("Favorito salvo")
+            elif choice == "Excluir favorito":
+                if not saved: self.status.setText("Não há favoritos para excluir"); return
+                names = [p["name"] for p in saved]
+                name, accepted = QInputDialog.getItem(self, "Excluir favorito", "Favorito:", names, 0, False)
+                if accepted: self.presets.remove(names.index(name)); self.status.setText("Favorito excluído")
+            else:
+                index = options.index(choice)
+                preset = saved[index]
+                self.settings.update(frequency_hz=preset["frequency_hz"], modulation=preset["modulation"])
+                self.persist_and_refresh(restart=True)
+
+        def scanner(self, checked):
+            if not checked:
+                self.scanner_engine.stop(); self.scanner_button.setText("▶ SCANNER"); self.status.setText("Scanner parado"); return
+            channels = self.presets.load()
+            self.scanner_engine = Scanner(channels, dwell_seconds=self.settings.get("scanner_dwell_seconds", 5))
+            try:
+                self.scanner_engine.start()
+            except ValueError as exc:
+                self.scanner_button.setChecked(False); self.status.setText(str(exc)); return
+            self.scanner_button.setText("■ PARAR SCAN"); self.status.setText("Scanner iniciado")
+            self.scan_tick()
+
+        def scan_tick(self):
+            preset = self.scanner_engine.tick()
+            if not preset: return
+            self.settings.update(frequency_hz=preset["frequency_hz"], modulation=preset["modulation"])
+            self.persist_and_refresh(restart=True)
+            self.status.setText("Scanner: " + preset["name"])
+
+        def toggle_recording(self, checked):
+            try:
+                if checked:
+                    path = self.receiver.start_recording(self.settings["frequency_hz"], self._request().sample_rate)
+                    self.status.setText("Gravando: " + path.name); self.record_button.setText("■ PARAR GRAVAÇÃO")
+                else:
+                    self.receiver.stop_recording(); self.status.setText("Gravação salva"); self.record_button.setText("● GRAVAR")
+            except RuntimeError as exc:
+                self.record_button.setChecked(False); self.status.setText(str(exc))
+
         def _request(self):
             return TuneRequest(self.settings["frequency_hz"], self.settings["modulation"], self.settings["gain"], self.settings["squelch"])
 
@@ -234,6 +299,7 @@ if importlib.util.find_spec("PyQt5"):
         def toggle(self):
             if self.receiver.running:
                 self.receiver.stop(); self.status.setText("RTL-SDR parado")
+                self.record_button.setChecked(False); self.record_button.setText("● GRAVAR")
             else: self.start()
             self.refresh()
 
@@ -258,17 +324,17 @@ if importlib.util.find_spec("PyQt5"):
             finally: self._refreshing = False
 
         def closeEvent(self, event):
-            self.spectrum_timer.stop(); self.receiver.stop(); self.buttons.close(); event.accept()
+            self.spectrum_timer.stop(); self.scanner_timer.stop(); self.receiver.stop(); self.buttons.close(); event.accept()
 
 
 def main():
-    parser = argparse.ArgumentParser(); parser.add_argument("--demo", action="store_true"); parser.add_argument("--config-dir", default="/var/lib/radio-movel-sdr")
+    parser = argparse.ArgumentParser(); parser.add_argument("--demo", action="store_true"); parser.add_argument("--config-dir", default="/var/lib/radio-movel-sdr"); parser.add_argument("--recording-dir")
     args = parser.parse_args(); logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if not importlib.util.find_spec("PyQt5"):
         print("PyQt5 não instalado. Execute scripts/install.sh.", file=sys.stderr); return 2
     store = SettingsStore(Path(args.config_dir) / "settings.json"); settings = store.load(DEFAULTS)
     settings["demo_mode"] = args.demo or settings.get("demo_mode", False)
-    app = QApplication(sys.argv); window = RadioWindow(settings, store)
+    app = QApplication(sys.argv); window = RadioWindow(settings, store, args.recording_dir)
     signal.signal(signal.SIGTERM, lambda *_: app.quit()); window.showFullScreen()
     return app.exec_()
 
