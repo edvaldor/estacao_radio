@@ -15,9 +15,7 @@ tar -xzf "$archive" -C "$work" --no-same-owner --no-same-permissions
 for file in settings.json presets.json; do
   [[ -f $work/radio-movel-sdr/$file && ! -L $work/radio-movel-sdr/$file ]] || { echo "Backup recusado: $file não é arquivo regular."; exit 1; }
 done
-systemctl stop radio-movel-sdr.service 2>/dev/null || true
 install -d -m 755 /var/lib/radio-movel-sdr
 install -m 600 "$work/radio-movel-sdr/settings.json" /var/lib/radio-movel-sdr/settings.json
 install -m 600 "$work/radio-movel-sdr/presets.json" /var/lib/radio-movel-sdr/presets.json
-systemctl start radio-movel-sdr.service 2>/dev/null || true
 echo 'Configurações restauradas com segurança.'

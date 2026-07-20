@@ -1,65 +1,40 @@
 # Problemas
+
 ## A interface não abriu
 
-A instalação deve ser executada como root: `sudo ./scripts/install.sh`. Ela instala a unidade systemd do sistema `radio-movel-sdr.service`, que inicia Xorg e a interface como `pi`; não há uma unidade systemd de usuário. A unidade recebe `DISPLAY=:0` e `XAUTHORITY=/home/pi/.Xauthority`. Verifique o estado e o erro sem perder o diagnóstico:
+Execute a instalação como root: `sudo ./scripts/install.sh`. Ela cria o lançador
+`/home/<usuário>/Desktop/radio-movel-sdr.desktop` para o usuário selecionado. Entre
+na sessão gráfica desse usuário e abra **Rádio Móvel SDR** com duplo clique. O
+lançador usa a sessão X11 já aberta; ele não inicia Xorg e não existe um serviço
+`radio-movel-sdr.service` habilitado para iniciar a interface automaticamente.
+
+Consulte o registro acessível ao usuário e o diagnóstico:
 
 ```bash
-radioctl status
-radioctl logs
-radioctl restart
+cat ~/.local/state/radio-movel-sdr/launch.log
+radioctl doctor
 ```
 
-Se `radioctl status` informar `Unit radio-movel-sdr.service could not be found`, a unidade não foi instalada (ou foi removida). No clone do projeto, repare a instalação com:
+Se o lançador não estiver na área de trabalho, repare a instalação no clone do
+projeto:
 
 ```bash
 cd ~/radio-movel-sdr
 sudo ./scripts/install.sh --non-interactive
-radioctl status
 ```
-
-O instalador copia a unidade para `/etc/systemd/system/`, recarrega o systemd e a habilita. Uma instalação de revisão anterior também deve executar esse comando para migrar para a unidade de sistema atual.
-
-## Outros diagnósticos
-
-Execute `radioctl doctor` e `radioctl logs`. Se houver `usb_claim_interface error -6`, o kernel DVB pode estar usando o SDR: confirme no diagnóstico antes de criar blacklist, faça backup de qualquer configuração e reinicie. Sem SDR, inicie com `--demo`; sem GPIO ou touch, a aplicação continua pela interface disponível.
 
 ## Touchscreen ADS7846/Waveshare não responde
 
 O número de evento **não é fixo**: USB, HDMI e outros dispositivos podem mudar o
-`eventN` a cada boot. Faça o diagnóstico como root ou com `sudo`; o comando
-também informa se o usuário que executa a interface (`pi`, ou o valor de
-`RADIO_UI_USER`) tem leitura no device encontrado:
+`eventN` a cada boot. Execute `radioctl doctor` e `cat /proc/bus/input/devices`;
+procure o bloco `ADS7846 Touchscreen`. O campo `Handlers` contém o `eventN` atual,
+mas use-o somente para a conferência daquele boot. O diagnóstico encontra o mesmo
+dispositivo pelo nome em sysfs e mostra o caminho correspondente.
 
-```bash
-radioctl doctor
-cat /proc/bus/input/devices
-```
-
-Procure o bloco cujo nome é `ADS7846 Touchscreen`. O campo `Handlers` contém o
-`eventN` atualmente associado; use esse valor somente para a conferência daquele
-boot. O `radioctl doctor` encontra o mesmo dispositivo pelo nome em sysfs e
-mostra o caminho correspondente, por exemplo `/dev/input/event3`, sem assumir
-que será sempre esse número.
-
-Em seguida confirme a configuração de boot. Em Raspberry Pi OS recente o arquivo
-normalmente é `/boot/firmware/config.txt`; em instalações antigas pode ser
-`/boot/config.txt`:
-
-```bash
-sudo grep -Ev '^\s*#|^\s*$' /boot/firmware/config.txt | grep -E 'dtparam=spi=on|dtoverlay=waveshare32b'
-# Se o primeiro arquivo não existir, repita usando /boot/config.txt.
-```
-
-Devem aparecer `dtparam=spi=on` e `dtoverlay=waveshare32b` (com os parâmetros
-adicionais recomendados pelo fornecedor da revisão física da tela). Após alterar
-o overlay ou SPI, reinicie. Se o diagnóstico indicar que `/dev/spidev*`, o
-overlay ou o ADS7846 está **AUSENTE**, corrija primeiro a configuração indicada;
-não crie regra baseada em `/dev/input/eventN`.
-
-Se o device existir mas a permissão estiver negada, descubra o grupo proprietário
-com `ls -l /dev/input/eventN` usando o caminho exibido pelo diagnóstico, adicione
-o usuário da UI a esse grupo (normalmente `input`) e encerre/inicie a sessão do
-usuário para renovar os grupos:
+Confirme também `dtparam=spi=on` e `dtoverlay=waveshare32b` no arquivo de boot
+(`/boot/firmware/config.txt` em instalações recentes ou `/boot/config.txt` nas
+antigas). Se a permissão do device for negada, adicione o usuário da UI ao grupo
+proprietário, normalmente `input`, e encerre/inicie a sessão para renovar os grupos:
 
 ```bash
 sudo usermod -aG input pi
@@ -67,73 +42,30 @@ sudo usermod -aG input pi
 
 ## Configuração Qt de entrada
 
-O modo selecionado por este projeto é **sessão X11**, não framebuffer direto. A
-unidade `radio-movel-sdr.service` inicia a UI como `pi`, com `QT_QPA_PLATFORM=xcb`, `DISPLAY=:0` e o `XAUTHORITY` desse
-usuário. Portanto, não defina `QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS` nem force
-`linuxfb`/`eglfs` nessa instalação: a entrada é entregue pelo Xorg e libinput.
-O instalador instala `xserver-xorg-input-libinput` e `xinput`. O `radioctl
-doctor` valida o plugin `xcb` do PyQt5, a sessão X11 de `pi` e, quando o cookie
-X estiver disponível, se o ADS7846 é visível na pilha X/libinput. Em caso de
-falha, confira também:
+O modo selecionado é **sessão X11**, não framebuffer direto. O lançador configura
+`QT_QPA_PLATFORM=xcb` e herda `DISPLAY` e `XAUTHORITY` da sessão gráfica do usuário.
+Não defina `QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS` nem force `linuxfb`/`eglfs`: a
+entrada é entregue pelo Xorg e libinput. Em caso de falha, confira:
 
 ```bash
-sudo -u pi DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority xinput --list
-radioctl status
-radioctl logs
+xinput --list
+tail -n 100 ~/.local/state/radio-movel-sdr/launch.log
 ```
 
-Para uma futura instalação em **framebuffer direto**, isso é uma troca de modo,
-não apenas uma variável de ambiente: antes de desativar X11, confirme que o
-PyQt5 instalado contém o backend escolhido (`linuxfb` ou `eglfs`) e o suporte de
-entrada `evdev`/`libinput`. Configure explicitamente `QT_QPA_PLATFORM` e o
-device detectado naquele boot (por exemplo,
-`QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/eventN`); não reutilize um
-`eventN` documentado ou de boot anterior. Essa combinação não é configurada nem
-validada pela unidade X11 atual.
+## O lançador não abre uma segunda janela
 
-## A tela apareceu e voltou ao prompt
-
-A causa conhecida deste sintoma é haver **dois iniciadores do X**: a receita antiga
-no `/home/pi/.bash_profile` executa `startx`, enquanto o serviço do rádio tenta
-abrir o mesmo display `:0`. O segundo X encerra ou perde o display e o console
-volta a aparecer. Esta versão usa somente `radio-movel-sdr.service`; nunca deixe
-`startx` em `.bash_profile` para o rádio. O instalador e o atualizador comentam
-somente as duas linhas antigas reconhecidas, guardando uma cópia em
-`/var/backups/radio-movel-sdr/`.
-
-Pelo SSH, recupere primeiro o console sem reiniciar:
+Isso é esperado: o lançador usa um bloqueio para impedir múltiplas instâncias.
+Feche a janela existente antes de abrir novamente. Se ela não estiver visível,
+verifique os processos e o registro:
 
 ```bash
-sudo systemctl stop radio-movel-sdr.service
-radioctl status
-radioctl logs
-sudo radioctl doctor
+pgrep -af 'python.*app.main'
+tail -n 100 ~/.local/state/radio-movel-sdr/launch.log
 ```
 
-Veja a causa exata no journal. O `doctor` também mostra Xorg, locks, framebuffer,
-touch, grupos e áudio. Não apague `/tmp/.X0-lock` manualmente: o lançador só o
-remove se o PID escrito nele não estiver vivo. Depois de atualizar/reinstalar,
-restaure a interface sem reboot:
+Para testar sem RTL-SDR, execute na própria sessão gráfica:
 
 ```bash
 cd /opt/radio-movel-sdr
-git fetch --tags
-git checkout <tag-ou-commit-aprovado>
-sudo ./scripts/install.sh --non-interactive
-sudo systemctl restart radio-movel-sdr.service
-radioctl status
+/opt/radio-movel-sdr/venv/bin/python -m app.main --demo
 ```
-
-Para testar sem RTL-SDR, pare o serviço e inicie uma sessão de demonstração
-controlada (ela usa o mesmo X do serviço):
-
-```bash
-sudo systemctl stop radio-movel-sdr.service
-sudo -u pi HOME=/home/pi DISPLAY=:0 XAUTHORITY=/home/pi/.Xauthority \
-  /opt/radio-movel-sdr/venv/bin/python -m app.main --demo
-sudo systemctl start radio-movel-sdr.service
-```
-
-Se uma saída ALSA for inválida ou o RTL-SDR faltar, a mensagem deve aparecer na
-janela e no journal; a sessão gráfica continua aberta. Botões GPIO ausentes ou
-com erro também são apenas registrados e não devem fechar a interface.

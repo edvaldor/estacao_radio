@@ -12,7 +12,7 @@ Receptor portátil **somente de recepção** para Raspberry Pi 2, RTL-SDR RTL283
 - Backend `rtl_fm` + `aplay` sem shell nem interpolação de entrada.
 - Botões opcionais: GPIO18 anterior, GPIO23 iniciar/parar e GPIO24 próximo.
 - Diagnóstico do ADS7846 por nome/caminho sysfs (não fixa `/dev/input/eventN`), SPI/framebuffer/ALSA/RTL-SDR.
-- Serviços, atualização com rollback, backup/restauração e `radioctl` em português.
+- Lançador de área de trabalho, atualização com rollback, backup/restauração e `radioctl` em português.
 
 ## Instalação para leigos
 
@@ -28,7 +28,7 @@ sudo ./scripts/install.sh
 
 O instalador instala/atualiza os pacotes APT necessários (`python3`, `python3-venv`, PyQt5, gpiozero, rtl-sdr, ALSA e X mínimo), cria `/opt/radio-movel-sdr/venv` com acesso apenas aos pacotes do sistema e confirma Raspberry Pi, ARMv7 e Raspberry Pi OS; verifica internet e pelo menos 900 MB livres; lista áudio ALSA e guarda backups em `/var/backups/radio-movel-sdr`. Ele não sobrescreve `settings.json` ou `presets.json` existentes. Para ver ações sem alterar nada: `sudo ./scripts/install.sh --dry-run --non-interactive`.
 
-Ao terminar a instalação, a unidade systemd **`radio-movel-sdr.service`** inicia Xorg e a interface como `pi`. Ela é a única responsável pelo display `:0`; o instalador migra as linhas antigas `FRAMEBUFFER=/dev/fb1` e `startx 2> /tmp/xorg_errors` do `.bash_profile`, preservando as demais personalizações e fazendo backup. A unidade usa X11 com `DISPLAY=:0` e `XAUTHORITY=/home/pi/.Xauthority`, registra tudo no journal e só termina com sucesso se Xorg e a aplicação permanecerem abertos. Para reiniciar ou consultar o journal, use `sudo systemctl restart radio-movel-sdr.service`, `radioctl status` e `radioctl logs`.
+Ao terminar, o instalador cria `~/Desktop/radio-movel-sdr.desktop` para o usuário selecionado. Entre normalmente na sessão gráfica e abra **Rádio Móvel SDR** com duplo clique. O lançador usa a sessão X11 existente — ele não inicia Xorg nem habilita serviço para inicialização automática — e evita duas instâncias simultâneas. Os erros de inicialização e da aplicação ficam em `~/.local/state/radio-movel-sdr/launch.log`.
 
 ## Uso sem teclado
 
@@ -44,8 +44,6 @@ Os exemplos aeronáuticos têm rótulos genéricos, não frequências locais ver
 
 | Comando | Função |
 |---|---|
-| `radioctl status/start/stop/restart` | Controla o serviço. |
-| `radioctl logs` | Mostra logs do journal. |
 | `radioctl doctor` | Diagnostica SDR, touch, SPI, framebuffer e áudio. |
 | `radioctl rtl-test` | Executa teste do receptor. |
 | `radioctl audio` | Lista dispositivos ALSA. |
@@ -54,7 +52,7 @@ Os exemplos aeronáuticos têm rótulos genéricos, não frequências locais ver
 | `radioctl update --check-only` | Consulta atualização estável. |
 | `radioctl update` / `radioctl update --rollback` | Atualiza por tag ou volta ao commit anterior. |
 
-A atualização instala a última **tag estável publicada** (ou uma tag informada com `--version`), atualiza novamente os componentes APT declarados, atualiza a unidade systemd instalada e valida a aplicação antes de reiniciar o serviço. Portanto, um commit que ainda não recebeu tag não é instalado por `radioctl update`. Ela **não** faz upgrade de versão principal do Python ou do sistema operacional, pois isso pode quebrar o Raspberry Pi OS; essas atualizações devem ser feitas pelo administrador via APT. A atualização automática é deliberadamente desativada. Consulte [ATUALIZACAO.md](docs/ATUALIZACAO.md) e [PROBLEMAS.md](docs/PROBLEMAS.md) para recuperação.
+A atualização instala a última **tag estável publicada** (ou uma tag informada com `--version`), atualiza novamente os componentes APT declarados, recria o lançador da área de trabalho e valida a aplicação. Portanto, um commit que ainda não recebeu tag não é instalado por `radioctl update`. Ela **não** faz upgrade de versão principal do Python ou do sistema operacional, pois isso pode quebrar o Raspberry Pi OS; essas atualizações devem ser feitas pelo administrador via APT. A atualização automática é deliberadamente desativada. Consulte [ATUALIZACAO.md](docs/ATUALIZACAO.md) e [PROBLEMAS.md](docs/PROBLEMAS.md) para recuperação.
 
 ## Arquitetura e decisões
 
@@ -86,7 +84,6 @@ O último comando deve recusar corretamente esta máquina de desenvolvimento se 
 app/          interface, backend, scanner, áudio, GPIO e diagnóstico
 config/       exemplos de configurações e presets JSON
 scripts/      instalação, atualização, desinstalação, diagnóstico e backup
-systemd/      unidade de sistema que supervisiona a sessão gráfica
 docs/         instalação, hardware, recuperação e expansões
 ```
 
