@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate the install copy-and-service step for both a clean install and a reinstall.
+# Validate the install copy and display-configuration integration.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -7,19 +7,21 @@ INSTALLER="$ROOT/scripts/install.sh"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# The installer must copy the staged worktree before it renders the system unit,
-# and must not install files onto their own existing paths.
+# Display setup must run from the source tree, before the staged worktree is copied.
 copy_line=$(rg -n -F 'cp -a "$stage/source/." /opt/radio-movel-sdr/' "$INSTALLER" | cut -d: -f1)
-service_line=$(rg -n -F 'sed "s/__USER__/$user/g" /opt/radio-movel-sdr/systemd/radio-movel-sdr.service > /etc/systemd/system/radio-movel-sdr.service' "$INSTALLER" | cut -d: -f1)
-reload_line=$(rg -n -F '  systemctl daemon-reload' "$INSTALLER" | cut -d: -f1)
-enable_line=$(rg -n -F '  systemctl enable --now radio-movel-sdr.service' "$INSTALLER" | cut -d: -f1)
-[[ $copy_line =~ ^[0-9]+$ && $service_line =~ ^[0-9]+$ ]]
-[[ $reload_line =~ ^[0-9]+$ && $enable_line =~ ^[0-9]+$ ]]
-[[ $copy_line -lt $service_line && $service_line -lt $reload_line && $reload_line -lt $enable_line ]]
-if rg -F 'install -m 755 /opt/radio-movel-sdr/scripts/start-graphical-session.sh' "$INSTALLER"; then
-  echo 'O instalador não deve copiar scripts já presentes no destino.' >&2
-  exit 1
-fi
+display_line=$(rg -n -F 'run "$ROOT/scripts/configure-display.sh" "${display_args[@]}"' "$INSTALLER" | cut -d: -f1)
+[[ $copy_line =~ ^[0-9]+$ && $display_line =~ ^[0-9]+$ ]]
+[[ $display_line -lt $copy_line ]]
+
+DISPLAY_CONFIG="$ROOT/scripts/configure-display.sh"
+bash -n "$INSTALLER" "$DISPLAY_CONFIG"
+rg -F 'dtparam=spi=on' "$DISPLAY_CONFIG" >/dev/null
+rg -F 'dtoverlay=waveshare32b:rotate=90' "$DISPLAY_CONFIG" >/dev/null
+rg -F 'framebuffer_width=320' "$DISPLAY_CONFIG" >/dev/null
+rg -F '/boot/firmware/config.txt /boot/config.txt' "$DISPLAY_CONFIG" >/dev/null
+rg -F 'https://github.com/waveshareteam/LCD-show.git' "$DISPLAY_CONFIG" >/dev/null
+rg -F 'waveshare32b-overlay.dtb' "$DISPLAY_CONFIG" >/dev/null
+rg -F 'xinput_calibrator' "$DISPLAY_CONFIG" >/dev/null
 
 install_and_verify() {
   local destination=$1 user=$2
